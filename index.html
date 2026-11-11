@@ -3,31 +3,491 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Hello from Claude Code</title>
+<title>Lucky Vault — Mystery Box Opener</title>
 <style>
-  body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
-         background: #0b1d2a; color: #e8f4f8; font-family: system-ui, sans-serif; text-align: center; padding: 24px; box-sizing: border-box; }
-  h1 { font-size: 1.8rem; margin: 0 0 8px; }
-  p { opacity: .8; margin: 0 0 20px; }
-  img { max-width: 100%; width: 420px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.5); cursor: pointer; transition: transform .2s; }
-  img.wiggle { animation: wiggle .5s; }
-  @keyframes wiggle { 0%,100%{transform:rotate(0)} 25%{transform:rotate(-4deg)} 75%{transform:rotate(4deg)} }
-  #count { margin-top: 16px; font-size: 1.1rem; }
+  :root {
+    --bg: #0b1d2a;
+    --panel: #10283a;
+    --panel2: #143248;
+    --text: #e8f4f8;
+    --muted: #9fc3d4;
+    --accent: #ffd54a;
+    --common: #9aa5ab;
+    --uncommon: #4fd17a;
+    --rare: #4aa8ff;
+    --epic: #b561ff;
+    --legendary: #ffb23e;
+    --mythic: #ff4a7a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, sans-serif; padding: 20px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; text-align: center; }
+  .sub { text-align: center; color: var(--muted); margin: 0 0 18px; font-size: .9rem; }
+
+  .stats { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+  .stat {
+    background: var(--panel); border-radius: 12px; padding: 8px 14px; font-size: .95rem;
+    display: flex; align-items: center; gap: 6px; border: 1px solid #1d3a50;
+  }
+  .stat b { color: var(--accent); }
+
+  .reel-box {
+    background: var(--panel); border-radius: 16px; padding: 16px; margin-bottom: 16px;
+    border: 1px solid #1d3a50;
+  }
+  .reel-viewport {
+    position: relative; height: 110px; overflow: hidden; border-radius: 10px;
+    background: linear-gradient(90deg, #081520 0%, #0e2334 50%, #081520 100%);
+  }
+  .reel-viewport::before, .reel-viewport::after {
+    content: ""; position: absolute; top: 0; bottom: 0; width: 2px; left: 50%;
+    background: var(--accent); z-index: 3; box-shadow: 0 0 10px var(--accent);
+  }
+  .reel-strip { position: absolute; top: 0; left: 0; height: 100%; display: flex; will-change: transform; }
+  .reel-item {
+    width: 110px; height: 110px; flex: 0 0 110px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; font-size: 2.2rem; border-right: 1px solid #0a1c28;
+    position: relative;
+  }
+  .reel-item img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; }
+  .reel-item .name { font-size: .6rem; margin-top: 4px; color: var(--muted); text-align: center; padding: 0 4px; }
+
+  .open-controls { display: flex; gap: 10px; margin-top: 14px; justify-content: center; flex-wrap: wrap; }
+  button {
+    font-family: inherit; border: none; border-radius: 10px; padding: 10px 16px; font-size: .95rem;
+    cursor: pointer; font-weight: 600; transition: transform .1s, filter .15s;
+  }
+  button:active { transform: scale(.96); }
+  button:disabled { opacity: .4; cursor: default; }
+  .btn-primary { background: var(--accent); color: #2a2000; }
+  .btn-primary:hover:not(:disabled) { filter: brightness(1.1); }
+  .btn-secondary { background: var(--panel2); color: var(--text); border: 1px solid #244a66; }
+  .btn-secondary:hover:not(:disabled) { filter: brightness(1.2); }
+  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid #1d3a50; }
+
+  .result-banner {
+    text-align: center; margin-top: 10px; min-height: 22px; font-weight: 700; font-size: 1rem;
+  }
+
+  .section { background: var(--panel); border-radius: 16px; padding: 16px; margin-bottom: 16px; border: 1px solid #1d3a50; }
+  .section h2 { font-size: 1.05rem; margin: 0 0 10px; display: flex; align-items: center; justify-content: space-between; }
+  .section h2 small { color: var(--muted); font-weight: 400; font-size: .75rem; cursor: pointer; text-decoration: underline; }
+
+  .shop-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+  .shop-card {
+    background: var(--panel2); border-radius: 12px; padding: 12px; text-align: center; border: 1px solid #244a66;
+  }
+  .shop-card .amount { font-size: 1.4rem; margin: 2px 0; }
+  .shop-card .price { color: var(--muted); font-size: .8rem; margin-bottom: 8px; }
+
+  .ad-card { display: flex; align-items: center; gap: 12px; background: var(--panel2); border-radius: 12px; padding: 12px; border: 1px solid #244a66; }
+  .ad-progress { flex: 1; height: 8px; background: #0a1c28; border-radius: 4px; overflow: hidden; }
+  .ad-progress-fill { height: 100%; width: 0%; background: var(--accent); transition: width .1s linear; }
+
+  .inventory { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
+  .inv-item {
+    background: var(--panel2); border-radius: 10px; padding: 8px 4px; text-align: center; position: relative;
+    border: 2px solid transparent;
+  }
+  .inv-item .icon { font-size: 1.6rem; }
+  .inv-item img.icon-img { width: 36px; height: 36px; object-fit: cover; border-radius: 6px; }
+  .inv-item .nm { font-size: .6rem; color: var(--muted); margin: 2px 0; height: 24px; overflow: hidden; }
+  .inv-item .count { position: absolute; top: 2px; right: 6px; font-size: .65rem; background: #0a1c28; border-radius: 6px; padding: 0 4px; }
+  .inv-item .sellv { font-size: .65rem; color: var(--accent); }
+  .inv-empty { color: var(--muted); font-size: .85rem; text-align: center; padding: 10px; }
+
+  .odds-table { width: 100%; font-size: .85rem; border-collapse: collapse; }
+  .odds-table td, .odds-table th { padding: 6px 8px; text-align: left; border-bottom: 1px solid #1d3a50; }
+  .odds-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+
+  .toast {
+    position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%) translateY(10px); opacity: 0;
+    background: var(--panel2); border: 1px solid var(--accent); color: var(--text); padding: 10px 18px;
+    border-radius: 10px; font-size: .9rem; transition: opacity .3s, transform .3s; pointer-events: none; z-index: 50;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; z-index: 100; padding: 20px;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal { background: var(--panel); border-radius: 16px; padding: 20px; max-width: 420px; width: 100%; border: 1px solid var(--accent); }
+  .modal h3 { margin: 0 0 10px; }
+  .modal .close { display: block; margin: 14px auto 0; }
+
+  .confetti { position: fixed; top: -10px; width: 8px; height: 14px; z-index: 60; pointer-events: none; }
+
+  .flash { position: fixed; inset: 0; pointer-events: none; z-index: 40; opacity: 0; }
+  .flash.show { animation: flashAnim .6s ease-out; }
+  @keyframes flashAnim { 0% { opacity: .55; } 100% { opacity: 0; } }
+
+  footer { text-align: center; color: var(--muted); font-size: .75rem; margin-top: 10px; opacity: .7; }
 </style>
 </head>
 <body>
-  <h1>Hi Poofy! 🐙</h1>
-  <p>Your test repo works with Claude Code. Tap the kraken.</p>
-  <img id="kraken" src="funny%20kraken%20ship%20seamonster.jpg" alt="Kraken attacking a ship">
-  <div id="count">Ships sunk: 0</div>
+<div class="wrap">
+  <h1>🗝️ Lucky Vault</h1>
+  <p class="sub">Open the vault. Collect the loot. Sell what you don't need.</p>
+
+  <div class="stats">
+    <div class="stat">🔑 Keys: <b id="statKeys">0</b></div>
+    <div class="stat">🪙 Coins: <b id="statCoins">0</b></div>
+    <div class="stat">📦 Opened: <b id="statOpened">0</b></div>
+    <div class="stat">🏆 Best: <b id="statBest">—</b></div>
+  </div>
+
+  <div class="reel-box">
+    <div class="reel-viewport" id="reelViewport">
+      <div class="reel-strip" id="reelStrip"></div>
+    </div>
+    <div class="result-banner" id="resultBanner"></div>
+    <div class="open-controls">
+      <button class="btn-primary" id="openBtn">Open Vault (1 🔑)</button>
+      <button class="btn-secondary" id="sellAllBtn">Sell All Loot</button>
+      <button class="btn-ghost" id="oddsBtn">View Odds</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Key Shop <small id="shopNote">demo — no real charge</small></h2>
+    <div class="shop-grid">
+      <div class="shop-card">
+        <div class="amount">🔑 5</div>
+        <div class="price">$0.99</div>
+        <button class="btn-secondary" data-keys="5" data-price="0.99">Buy</button>
+      </div>
+      <div class="shop-card">
+        <div class="amount">🔑 15</div>
+        <div class="price">$2.99</div>
+        <button class="btn-secondary" data-keys="15" data-price="2.99">Buy</button>
+      </div>
+      <div class="shop-card">
+        <div class="amount">🔑 50</div>
+        <div class="price">$7.99</div>
+        <button class="btn-secondary" data-keys="50" data-price="7.99">Buy</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Free Key</h2>
+    <div class="ad-card">
+      <div style="flex:1">
+        <div id="adLabel">Watch a short ad to get 1 free key</div>
+        <div class="ad-progress"><div class="ad-progress-fill" id="adFill"></div></div>
+      </div>
+      <button class="btn-primary" id="adBtn">▶ Watch</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Your Loot <small id="invCount"></small></h2>
+    <div class="inventory" id="inventory"></div>
+  </div>
+
+  <footer>Prototype — rarity odds shown transparently, no real payments processed.</footer>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="flash" id="flash"></div>
+
+<div class="modal-overlay" id="oddsModal">
+  <div class="modal">
+    <h3>Drop Odds</h3>
+    <table class="odds-table" id="oddsTable"></table>
+    <button class="btn-secondary close" id="closeOdds">Close</button>
+  </div>
+</div>
+
 <script>
-  let n = 0;
-  const img = document.getElementById('kraken');
-  img.addEventListener('click', () => {
-    n++;
-    document.getElementById('count').textContent = 'Ships sunk: ' + n;
-    img.classList.remove('wiggle'); void img.offsetWidth; img.classList.add('wiggle');
+const RARITIES = [
+  { key: 'common',    label: 'Common',    weight: 60,   color: 'var(--common)' },
+  { key: 'uncommon',  label: 'Uncommon',  weight: 25,   color: 'var(--uncommon)' },
+  { key: 'rare',      label: 'Rare',      weight: 10,   color: 'var(--rare)' },
+  { key: 'epic',      label: 'Epic',      weight: 4,    color: 'var(--epic)' },
+  { key: 'legendary', label: 'Legendary', weight: 0.9,  color: 'var(--legendary)' },
+  { key: 'mythic',    label: 'Mythic',    weight: 0.1,  color: 'var(--mythic)' },
+];
+
+const ITEMS = [
+  { id: 'coinpouch',  name: 'Coin Pouch',    rarity: 'common',    icon: '🪙', value: 5 },
+  { id: 'woodsword',  name: 'Wooden Sword',  rarity: 'common',    icon: '🗡️', value: 4 },
+  { id: 'oldboot',    name: 'Old Boot',      rarity: 'common',    icon: '👢', value: 3 },
+  { id: 'rustykey',   name: 'Rusty Key',     rarity: 'common',    icon: '🔑', value: 6 },
+  { id: 'silvering',  name: 'Silver Ring',   rarity: 'uncommon',  icon: '💍', value: 15 },
+  { id: 'map',        name: 'Treasure Map',  rarity: 'uncommon',  icon: '🗺️', value: 18 },
+  { id: 'lantern',    name: 'Lantern',       rarity: 'uncommon',  icon: '🏮', value: 12 },
+  { id: 'compass',    name: 'Gold Compass',  rarity: 'rare',      icon: '🧭', value: 50 },
+  { id: 'ruby',       name: 'Ruby Gem',      rarity: 'rare',      icon: '💎', value: 60 },
+  { id: 'piratehat',  name: 'Pirate Hat',    rarity: 'rare',      icon: '🎩', value: 45 },
+  { id: 'chest',      name: 'Enchanted Chest', rarity: 'epic',    icon: '📦', value: 200 },
+  { id: 'feather',    name: 'Phoenix Feather', rarity: 'epic',    icon: '🪶', value: 220 },
+  { id: 'crown',      name: 'Crown of the Deep', rarity: 'legendary', icon: '👑', value: 1000 },
+  { id: 'anchor',     name: 'Diamond Anchor',  rarity: 'legendary', icon: '⚓', value: 1100 },
+  { id: 'kraken',     name: 'The Kraken',      rarity: 'mythic',   img: 'funny%20kraken%20ship%20seamonster.jpg', value: 5000 },
+];
+
+const RARITY_ORDER = RARITIES.map(r => r.key);
+const SAVE_KEY = 'luckyVaultSave_v1';
+
+let state = loadState();
+spendDaily();
+render();
+
+function defaultState() {
+  return { coins: 50, keys: 3, opened: 0, bestRarity: null, inventory: {}, lastDaily: null };
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (raw) return Object.assign(defaultState(), JSON.parse(raw));
+  } catch (e) {}
+  return defaultState();
+}
+
+function saveState() {
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch (e) {}
+}
+
+function spendDaily() {
+  const today = new Date().toDateString();
+  if (state.lastDaily !== today) {
+    state.lastDaily = today;
+    state.coins += 50;
+    state.keys += 2;
+    saveState();
+    setTimeout(() => showToast('🎁 Daily bonus: +2 keys, +50 coins'), 400);
+  }
+}
+
+function weightedRarity() {
+  const total = RARITIES.reduce((s, r) => s + r.weight, 0);
+  let roll = Math.random() * total;
+  for (const r of RARITIES) {
+    if (roll < r.weight) return r.key;
+    roll -= r.weight;
+  }
+  return RARITIES[0].key;
+}
+
+function pickItem(rarityKey) {
+  const pool = ITEMS.filter(i => i.rarity === rarityKey);
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function rarityInfo(key) { return RARITIES.find(r => r.key === key); }
+
+function itemFace(item, extraClass) {
+  const div = document.createElement('div');
+  div.className = 'reel-item ' + (extraClass || '');
+  if (item.img) {
+    div.innerHTML = `<img src="${item.img}" alt="${item.name}"><div class="name">${item.name}</div>`;
+  } else {
+    div.innerHTML = `<div>${item.icon}</div><div class="name">${item.name}</div>`;
+  }
+  return div;
+}
+
+const reelStrip = document.getElementById('reelStrip');
+const reelViewport = document.getElementById('reelViewport');
+const openBtn = document.getElementById('openBtn');
+let spinning = false;
+
+function buildReel(winner) {
+  reelStrip.style.transition = 'none';
+  reelStrip.style.transform = 'translateX(0)';
+  reelStrip.innerHTML = '';
+  const total = 44;
+  const winIndex = 38;
+  for (let i = 0; i < total; i++) {
+    const item = i === winIndex ? winner : ITEMS[Math.floor(Math.random() * ITEMS.length)];
+    reelStrip.appendChild(itemFace(item));
+  }
+  const itemWidth = 110;
+  const viewportWidth = reelViewport.clientWidth;
+  const jitter = Math.floor(Math.random() * 16) - 8;
+  const target = (winIndex * itemWidth + itemWidth / 2) - (viewportWidth / 2) + jitter;
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      reelStrip.style.transition = 'transform 3s cubic-bezier(.12,.75,.1,1)';
+      reelStrip.style.transform = `translateX(-${target}px)`;
+    });
   });
+}
+
+function addToInventory(item) {
+  if (!state.inventory[item.id]) state.inventory[item.id] = { count: 0 };
+  state.inventory[item.id].count++;
+}
+
+function flashScreen(color) {
+  const flash = document.getElementById('flash');
+  flash.style.background = color;
+  flash.classList.remove('show');
+  void flash.offsetWidth;
+  flash.classList.add('show');
+}
+
+function spawnConfetti(count) {
+  const colors = ['#ffd54a', '#ff4a7a', '#4aa8ff', '#4fd17a', '#b561ff'];
+  for (let i = 0; i < count; i++) {
+    const c = document.createElement('div');
+    c.className = 'confetti';
+    c.style.left = Math.random() * 100 + 'vw';
+    c.style.background = colors[Math.floor(Math.random() * colors.length)];
+    c.style.transform = `rotate(${Math.random() * 360}deg)`;
+    document.body.appendChild(c);
+    const duration = 1800 + Math.random() * 1200;
+    c.animate([
+      { transform: c.style.transform, top: '-10px', opacity: 1 },
+      { transform: `rotate(${Math.random() * 720}deg)`, top: '100vh', opacity: .9 }
+    ], { duration, easing: 'ease-in' });
+    setTimeout(() => c.remove(), duration);
+  }
+}
+
+openBtn.addEventListener('click', () => {
+  if (spinning) return;
+  if (state.keys < 1) { showToast('Out of keys! Watch an ad or visit the shop.'); return; }
+  spinning = true;
+  state.keys--;
+  saveState();
+  render();
+  document.getElementById('resultBanner').textContent = '';
+  const rarityKey = weightedRarity();
+  const item = pickItem(rarityKey);
+  buildReel(item);
+  openBtn.disabled = true;
+  setTimeout(() => {
+    spinning = false;
+    openBtn.disabled = false;
+    state.opened++;
+    addToInventory(item);
+    const rarityIdx = RARITY_ORDER.indexOf(rarityKey);
+    const bestIdx = state.bestRarity ? RARITY_ORDER.indexOf(state.bestRarity) : -1;
+    if (rarityIdx > bestIdx) state.bestRarity = rarityKey;
+    saveState();
+    const info = rarityInfo(rarityKey);
+    document.getElementById('resultBanner').innerHTML =
+      `You got <span style="color:${info.color}">${info.label}: ${item.name}</span>! Worth ${item.value} 🪙`;
+    if (rarityKey === 'epic' || rarityKey === 'legendary' || rarityKey === 'mythic') {
+      flashScreen(info.color);
+      spawnConfetti(rarityKey === 'mythic' ? 140 : rarityKey === 'legendary' ? 90 : 50);
+    }
+    render();
+  }, 3150);
+});
+
+document.getElementById('sellAllBtn').addEventListener('click', () => {
+  let total = 0;
+  for (const id in state.inventory) {
+    const entry = state.inventory[id];
+    const item = ITEMS.find(i => i.id === id);
+    if (item && entry.count > 0) { total += item.value * entry.count; entry.count = 0; }
+  }
+  if (total === 0) { showToast('Nothing to sell.'); return; }
+  state.coins += total;
+  saveState();
+  showToast(`Sold loot for ${total} 🪙`);
+  render();
+});
+
+document.querySelectorAll('.shop-card button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const keys = parseInt(btn.dataset.keys, 10);
+    const price = btn.dataset.price;
+    state.keys += keys;
+    saveState();
+    showToast(`Demo purchase: +${keys} 🔑 (would charge $${price} with real payments)`);
+    render();
+  });
+});
+
+const adBtn = document.getElementById('adBtn');
+const adFill = document.getElementById('adFill');
+const adLabel = document.getElementById('adLabel');
+let adRunning = false;
+adBtn.addEventListener('click', () => {
+  if (adRunning) return;
+  adRunning = true;
+  adBtn.disabled = true;
+  adLabel.textContent = 'Playing ad…';
+  let pct = 0;
+  const iv = setInterval(() => {
+    pct += 100 / 40;
+    adFill.style.width = Math.min(pct, 100) + '%';
+    if (pct >= 100) {
+      clearInterval(iv);
+      state.keys += 1;
+      saveState();
+      adLabel.textContent = 'Watch a short ad to get 1 free key';
+      adFill.style.width = '0%';
+      adBtn.disabled = false;
+      adRunning = false;
+      showToast('+1 🔑 from ad reward');
+      render();
+    }
+  }, 125);
+});
+
+document.getElementById('oddsBtn').addEventListener('click', () => {
+  const table = document.getElementById('oddsTable');
+  table.innerHTML = '<tr><th>Rarity</th><th>Chance</th><th>Example</th></tr>' +
+    RARITIES.map(r => {
+      const example = ITEMS.find(i => i.rarity === r.key);
+      return `<tr><td><span class="odds-dot" style="background:${r.color}"></span>${r.label}</td><td>${r.weight}%</td><td>${example ? example.name : ''}</td></tr>`;
+    }).join('');
+  document.getElementById('oddsModal').classList.add('show');
+});
+document.getElementById('closeOdds').addEventListener('click', () => {
+  document.getElementById('oddsModal').classList.remove('show');
+});
+
+let toastTimer = null;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+function render() {
+  document.getElementById('statKeys').textContent = state.keys;
+  document.getElementById('statCoins').textContent = state.coins;
+  document.getElementById('statOpened').textContent = state.opened;
+  document.getElementById('statBest').textContent = state.bestRarity ? rarityInfo(state.bestRarity).label : '—';
+
+  const inv = document.getElementById('inventory');
+  const entries = Object.entries(state.inventory).filter(([, v]) => v.count > 0);
+  document.getElementById('invCount').textContent = entries.length ? `${entries.length} kinds` : '';
+  if (!entries.length) {
+    inv.innerHTML = '<div class="inv-empty">No loot yet — open the vault!</div>';
+  } else {
+    inv.innerHTML = entries
+      .sort((a, b) => RARITY_ORDER.indexOf(ITEMS.find(i => i.id === b[0]).rarity) - RARITY_ORDER.indexOf(ITEMS.find(i => i.id === a[0]).rarity))
+      .map(([id, entry]) => {
+        const item = ITEMS.find(i => i.id === id);
+        const info = rarityInfo(item.rarity);
+        const face = item.img ? `<img class="icon-img" src="${item.img}" alt="${item.name}">` : `<div class="icon">${item.icon}</div>`;
+        return `<div class="inv-item" style="border-color:${info.color}">
+          <div class="count">x${entry.count}</div>
+          ${face}
+          <div class="nm">${item.name}</div>
+          <div class="sellv">${item.value} 🪙</div>
+        </div>`;
+      }).join('');
+  }
+}
+
+if (!reelStrip.children.length) {
+  for (let i = 0; i < 6; i++) reelStrip.appendChild(itemFace(ITEMS[Math.floor(Math.random() * ITEMS.length)]));
+}
 </script>
 </body>
 </html>
